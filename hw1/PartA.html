@@ -1,0 +1,148 @@
+<!doctype HTML>
+<head>
+    <title>Learning to use Three JS!</title>
+    <script src="js/three.min.js"></script>
+</head>
+<body>
+    <script id="vertexShader" type="x-shader/x-vertex">
+        precision mediump float;
+
+        uniform mat4 modelViewMatrix;
+        uniform mat4 projectionMatrix;
+        attribute vec3 position;
+
+        uniform float time;
+        uniform vec4 color;
+
+        varying vec3 vPosition;
+        varying vec4 vColor;
+
+        void main() 
+        {
+            vec3 pos = position;
+
+            pos.x += sin(pos.x * 10.0 + time) * .5;
+            //pos.y += sin(pos.y * 10.0 + time) * .1;
+            //pos.z += sin(pos.z * 10.0 + time) * .1;
+
+            vPosition = pos;
+            vColor = color;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1);
+        }
+    </script>
+
+    <script id="fragmentShader" type="x-shader/x-fragment">
+        precision mediump float;
+
+        uniform float time;
+
+        varying vec4 vColor;
+        varying vec3 vPosition;
+
+        void main()
+        {
+            vec4 color = vec4(vColor);
+            color.r += sin(vPosition.x * 10.0 + time);
+            //color.g += cos(vPosition.y * 20.0 + time) * .5;
+            color.b += cos(vPosition.x * 10.0 + time) * .3;
+            gl_FragColor = color;
+        }
+    </script>
+
+    <script>
+        var scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xc0c0c0);
+        var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, .1, 1000);
+
+        var renderer = new THREE.WebGLRenderer({alpha: true});
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        var pointLight1 = new THREE.PointLight(0x4c11d6);
+        pointLight1.position.set(0, 0, 2);
+        var pointLight2 = new THREE.PointLight(0x191816);
+        pointLight2.position.set(3, 3, 1);
+        var ambient = new THREE.AmbientLight(0xf4f2a1);
+        var directionalLight = new THREE.DirectionalLight(0x7766ff, 0.5);
+
+        var cubeGeo = new THREE.BoxGeometry(1, 1, 1);
+        var cubeMat = new THREE.RawShaderMaterial({
+            uniforms: {
+                color: {type: "v4", value: new THREE.Vector4(0.2, 0.8, 0.2, 1.0)},
+                time: {type: "f", value: 1.0}
+            },
+            vertexShader: document.getElementById('vertexShader').textContent,
+            fragmentShader: document.getElementById('fragmentShader').textContent,
+        });
+        var cube = new THREE.Mesh(cubeGeo, cubeMat);
+        cube.position.x -= 4;
+
+        var sphereGeo = new THREE.SphereGeometry(.4, 64, 64);
+        var sphereMat = new THREE.MeshPhongMaterial({color: 0xaaaaaa});
+        var sphere = new THREE.Mesh(sphereGeo, sphereMat);
+        sphere.position.x += 4;
+
+        var loader = new THREE.TextureLoader();
+        var texture = loader.load('donut.jpg', (texture)=>{
+            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set(4, .5);
+        });
+
+        var torusGeo = new THREE.TorusGeometry(1, .2, 32, 24);
+        var torusMat = new THREE.MeshPhongMaterial({map: texture});
+        var torus = new THREE.Mesh(torusGeo, torusMat);
+
+        scene.add(cube);
+        scene.add(sphere);
+        scene.add(torus);
+        scene.add(ambient);
+        scene.add(pointLight1);
+        scene.add(pointLight2);
+        scene.add(directionalLight);
+        camera.position.z = 5;
+
+        var counter = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            var time = performance.now();
+
+            cube.rotation.x += .02;
+            cube.rotation.y += .02;
+            cube.material.uniforms.time.value = time * .005;
+
+            if (counter <= 100) {
+                cube.position.x += .02;
+                sphere.position.x -= .02;
+                pointLight1.position.x += .025;
+                pointLight1.position.y -= .025;
+                pointLight2.position.z -= .02;
+                ambient.color.r += .003;
+                counter++;
+            } else if (counter > 100) {
+                cube.position.x -= .02;
+                sphere.position.x += .02;
+                pointLight1.position.x -= .025;
+                pointLight1.position.y += .025;
+                pointLight2.position.z += .02;
+                ambient.color.r -= .003;
+                counter++;
+            } 
+            if (counter > 200) {
+                counter = 0;
+            }
+
+            torus.rotation.set(torus.rotation.x + .015, torus.rotation.y + .015, torus.rotation.z + .015);
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', ()=> {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        requestAnimationFrame(animate);
+    </script>
+</body>
