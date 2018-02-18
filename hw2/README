@@ -12,8 +12,9 @@ To make the water reflect, I mixed the water texture with the reflected texture 
 I also changed the terrain generation to happen based on fractal brownian motion noise,
 which is generated every time the land returns flat. The parameters for this noise generation 
 are tweakable in the dat.gui settings. A low scale and persistence makes smoother terrain,
-while higher settings make rougher, more jagged terrain. I used this noise for procedural terrain generation
-in a game that I made for CMPS120 last spring, which was already in javascript, so porting it was easy.
+while higher settings make rougher, more jagged terrain. 
+I used this noise for procedural terrain generation in a game that I made for CMPS120 
+last spring, which was already in javascript, so porting it was easy.
 The perlin/simplex noise that I used was created by josephg with Creative Commons: https://github.com/josephg
 
 partB.html corresponds to Part B of Homework 2.
