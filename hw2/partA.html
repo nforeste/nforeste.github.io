@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Outdoor 3D Scene</title>
+        <meta charset="utf-8">
+        <style>
+            body {
+                margin: 0px;
+                overflow: hidden;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="container"></div>
+        <script src="js/three.min.js"></script>
+        <script src="js/OrbitControls.js"></script>
+        <script src="js/perlin.js"></script>
+        <script src="js/dat.gui.min.js"></script>
+
+
+        <script id="envVS" type="x-shader/x-vertex">
+            uniform mat4 modelMatrix, viewMatrix, projectionMatrix;
+            uniform sampler2D tex;
+            uniform vec3 cameraPosition;
+
+            attribute vec3 position;
+            attribute vec2 uv;
+            attribute vec3 normal;
+
+            uniform float displaceAmount;
+
+            varying float vDisplace;
+            varying vec2 vUV;
+
+            varying vec3 vI;
+            varying vec3 vWorldNormal;
+
+            precision mediump float;
+
+            void main() {
+                vec4 mvPosition = viewMatrix * modelMatrix * vec4( position, 1.0 );
+                vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
+
+                vWorldNormal = normalize( mat3( modelMatrix[0].xyz, modelMatrix[1].xyz, modelMatrix[2].xyz ) * normal );
+
+                vI = worldPosition.xyz - cameraPosition;
+
+                vUV = uv;
+                vec4 clr = texture2D(tex, uv);
+                vDisplace = clr.r * displaceAmount;
+                vec3 newPos = (position.xyz + normal.xyz * vDisplace).xyz;
+                gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(newPos, 1.0);
+            }
+        </script>
+
+        <script id="envFS" type="x-shader/x-fragment">
+            precision mediump float;
+            uniform sampler2D tHill, tSand, tGrass, tWater;
+            uniform samplerCube envMap;
+
+            varying vec2 vUV;
+            varying float vDisplace;
+            varying vec3 vI;
+            varying vec3 vWorldNormal;
+
+            void main() {
+                vec4 hill = texture2D(tHill, vUV);
+                vec4 sand = texture2D(tSand, vUV);
+                vec4 grass = texture2D(tGrass, vUV);
+                vec4 water = texture2D(tWater, vUV);
+
+                vec3 reflection = reflect( vI, vWorldNormal );
+                vec4 envColor = textureCube( envMap, vec3( -reflection.x, reflection.yz ) );
+
+                water = mix(water, envColor, .6);
+
+                float zOffset = vDisplace;
+
+                vec4 mix1 = mix(water, hill, min(1.0, zOffset * 6.0));
+                vec4 mix2 = max(vec4(1.0), mix(hill, sand, zOffset) * 5.0);
+                vec4 mix3 = mix(mix1, mix2, zOffset);
+
+                gl_FragColor = vec4(mix3.rgb, 1.0);
+            }
+        </script>
+
+        <script id="skyboxVS" type="x-shader/x-vertex">
+            uniform mat4 modelMatrix;
+            uniform mat4 viewMatrix;
+            uniform mat4 projectionMatrix;
+
+            attribute vec3 position; 
+
+            varying vec3 vWorldPosition;
+    
+            void main() {
+                vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+                vWorldPosition = worldPosition.xyz;
+
+                vec4 p = viewMatrix * modelMatrix * vec4(position, 1.0);
+                gl_Position = projectionMatrix * p;
+             }
+        </script>
+
+        <script id="skyboxFS" type="x-shader/x-fragment">
+
+            precision mediump float;
+            
+            uniform samplerCube tCube;
+            varying vec3 vWorldPosition;
+
+            void main() {
+                gl_FragColor = textureCube( tCube, vec3(  vWorldPosition ) );
+            }
+    
+        </script>
+
+        <script>
+            var container;
+
+            var camera, scene, renderer;
+            var gui = new dat.GUI({width:350});
+            var options = {
+                octaves: 6,
+                persistence: .15,
+                scale: .015,
+            };
+
+            var descending = false;
+
+            var envVS = document.getElementById( 'envVS' ).textContent;
+            var envFS = document.getElementById( 'envFS' ).textContent;
+
+            var skyboxVS = document.getElementById( 'skyboxVS' ).textContent;
+            var skyboxFS = document.getElementById( 'skyboxFS' ).textContent;
+
+            var texture1 = generateNoiseTexture(300, 300);
+            var texture2 = new THREE.TextureLoader().load( 'grass.png' );
+            var texture3 = new THREE.TextureLoader().load( 'sand.jpg' );
+            var texture4 = new THREE.TextureLoader().load( 'hill.jpg' );
+            var texture5 = new THREE.TextureLoader().load('water.png');
+
+            init();
+            animate();
+
+            function init() {
+
+                gui.add(options, "octaves", 2, 24);
+                gui.add(options, "persistence", .10, .75);
+                gui.add(options, "scale", .01, .10);
+
+                container = document.getElementById( 'container' );
+
+                camera = new THREE.PerspectiveCamera( 50.0, window.innerWidth / window.innerHeight, 0.1, 2000 );
+
+
+                //adds a default mouse listener to control the camera rotation and zoom
+                var controls = new THREE.OrbitControls( camera );
+                camera.position.z = 5;
+                controls.update();
+
+
+                scene = new THREE.Scene();
+
+                var cubemap = new THREE.CubeTextureLoader().setPath("./cubemap/").load([
+                    'posx.jpg',
+                    'negx.jpg',
+                    'posy.jpg',
+                    'negy.jpg',
+                    'posz.jpg',
+                    'negz.jpg'
+                ]);
+
+                var uniforms = {"tCube": {type: "t", value: cubemap}};
+
+                var material = new THREE.RawShaderMaterial({
+                    uniforms: uniforms,
+                    vertexShader: skyboxVS,
+                    fragmentShader: skyboxFS
+                });
+                material.depthWrite = false;
+                material.side = THREE.BackSide;
+                var geometry = new THREE.BoxGeometry(2000, 2000, 2000);
+                skyMesh = new THREE.Mesh(geometry, material);
+                scene.add(skyMesh);
+
+
+                // geometry
+
+                var geometry1 = new THREE.PlaneGeometry( 5, 5, 300, 300 );
+
+                // material
+
+                var uniforms1 =  {
+                    displaceAmount: { type: "f", value: 0.0 },
+                    envMap: {type: "t", value: cubemap},
+                    tex: { type: "t", value: texture1  },
+                    tGrass: { type: "t", value: texture2  },
+                    tSand: { type: "t", value: texture3  },
+                    tHill: { type: "t", value: texture4  },
+                    tWater: {type: "t", value: texture5}
+                };
+
+
+                var material1 = new THREE.RawShaderMaterial( {
+
+                    uniforms: uniforms1,
+                    vertexShader: envVS,
+                    fragmentShader: envFS,
+
+                } );
+
+
+                var mesh1 = new THREE.Mesh( geometry1, material1 );
+                mesh1.material.side = THREE.DoubleSide;
+                mesh1.rotateX(-Math.PI/3);
+                scene.add( mesh1 );
+
+                renderer = new THREE.WebGLRenderer();
+                renderer.setPixelRatio( window.devicePixelRatio );
+                renderer.setSize( window.innerWidth, window.innerHeight );
+                container.appendChild( renderer.domElement );
+
+
+                window.addEventListener( 'resize', onWindowResize, false );
+            }
+
+            function onWindowResize( event ) {
+
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+
+                renderer.setSize( window.innerWidth, window.innerHeight );
+            }
+            
+
+            function animate() {
+
+                requestAnimationFrame( animate );
+                render();
+
+            }
+
+            function render() {
+
+                var time = performance.now();
+
+                var object0 = scene.children[ 1 ];
+                var prevDisplaceAmount = object0.material.uniforms.displaceAmount.value;
+                object0.material.uniforms.displaceAmount.value = 0.15 * (1.0 + Math.sin(time * 0.001));
+                if (!descending && object0.material.uniforms.displaceAmount.value <= prevDisplaceAmount) {
+                    descending = true;
+                } 
+
+                if (descending && object0.material.uniforms.displaceAmount.value > prevDisplaceAmount) {
+                    object0.material.uniforms.tex.value = generateNoiseTexture(300, 300);
+                    descending = false;
+                }
+
+                renderer.render( scene, camera );
+            }
+
+            function generateNoiseTexture(width, height) {
+                var size = width * height;
+                var data = new Uint8Array(size * 4);
+                noise.seed(Math.random());
+
+                for (let i = 0; i < width; i++) {
+                    for (let j = 0; j < height; j++) {
+                        data[4 * (i * width + j)] = data[4 * (i * width + j) + 1] = data[4 * (i * width + j) + 2] = sumOctave(i, j, options.octaves, options.persistence, options.scale, 0, 255);
+                        data[4*(i * width + j) + 3] = 255;
+                    }
+                }
+
+                tex = new THREE.DataTexture(data, width, height, THREE.RGBAFormat);
+                tex.needsUpdate = true;
+
+                return tex;
+            }
+
+            function sumOctave(x, y, octave, persistence, scale, low, high) {
+                let maxAmp = 0;
+                let amp = 1;
+                let freq = scale;
+                let total = 0;
+
+                for (let i = 0; i < octave; ++i) {
+                    total += noise.simplex2(x * freq, y * freq) * amp;
+                    maxAmp += amp;
+                    amp *= persistence;
+                    freq *= 2;
+                }
+
+                total /= maxAmp;
+                total = total * (high - low) / 2 + (high + low) / 2;
+                return total;
+            }
+
+        </script>
+    </body>
+</html>

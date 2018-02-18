@@ -1,0 +1,27 @@
+Nick Forester
+CMPM163
+1/18/2018
+
+There are 2 files.
+
+partA.html corresponds to part A of Homework 2.
+I started with the 'terrainDisplacementFromTexture' file from week 4 as a template. 
+I changed the grass texture to a water texture and messed around with the values a bit. 
+Then I took the code from the 'cubeMap' file from week 3 for reflections and added that in.
+To make the water reflect, I mixed the water texture with the reflected texture in the fragment shader.
+I also changed the terrain generation to happen based on fractal brownian motion noise,
+which is generated every time the land returns flat. The parameters for this noise generation 
+are tweakable in the dat.gui settings. A low scale and persistence makes smoother terrain,
+while higher settings make rougher, more jagged terrain. I used this noise for procedural terrain generation
+in a game that I made for CMPS120 last spring, which was already in javascript, so porting it was easy.
+The perlin/simplex noise that I used was created by josephg with Creative Commons: https://github.com/josephg
+
+partB.html corresponds to Part B of Homework 2.
+I didn't visually change very much from the example particle system. 
+I changed the texture and color to resemble fire a little bit.
+Most of the work for this part went into the noise. I reused my noise generation code
+from part A and changed it to create noise for every color channel: RGBA.
+Every 200 frames, I calculate a new noise texture (128x128 to ensure no lag).
+Then I edited the GPUParticleSystem.js file to add in a lerp effect between the old
+noise texture and the new noise texture that lerps over the 200 frames to produce a 
+smooth transition. 
