@@ -1,0 +1,19 @@
+Nick Forester
+CMPM163
+3/4/2018
+
+There are 2 files.
+
+partB.html corresponds to part B of Homework 3.
+I was heavily inspired by the code at https://www.shadertoy.com/view/lt33z7.
+In fact, I used that code as a base for my fragment shader.
+I added additional shapes that I found at 
+http://iquilezles.org/www/articles/distfunctions/distfunctions.htm.
+I also added several visual effects such as displacement and merging.
+For fun I also textured a capsule to look like a hotdog and made the
+background a grill. I struggled a lot getting the uv to work for the
+texture, and I eventually decided to manually find the uv using the
+pixel coordinates and the screen resolution.
+
+Part C is included as a pdf document. All relavent information for that
+is in the document.
